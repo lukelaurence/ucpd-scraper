@@ -1,122 +1,73 @@
-# scraping imports
-import requests
-import urllib.request
-import time
-import re
+import requests,time,datetime,re
 from bs4 import BeautifulSoup
-# plotting imports
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-# geolocating imports
 from geopy.geocoders import Nominatim
-gl = Nominatim(user_agent="example app")
 
-def scrapeucpd():
-	lst = [[],[],[],[],[],[],[]]
-	addresses = {}
-	enddate = str(int(time.time()))
-	baseurl = "https://incidentreports.uchicago.edu/incidentReportArchive.php?startDate=1277960400&endDate=" + enddate + "&offset="
-	url = baseurl + '0'
-	response = requests.get(url)
-	soup = BeautifulSoup(response.text,"html.parser")
-	pages = int(soup.findAll('span')[-3].text[4:]) * 5
-	# pages = 5
-	for p in range(0,pages,5):
-		offset = str(p)
-		url = baseurl + offset
-		response = requests.get(url)
-		soup = BeautifulSoup(response.text,"html.parser")
-		tags = soup.findAll('td')
-		for x,y in enumerate(tags):
-			a = x % 7
-			y = y.text
-			if not a - 1:
-				y = re.sub(r"\([^()]*\)","",y) + ", Chicago, IL"
-				if y in addresses:
-					y = addresses.get(y)
+def scrapeucpd(new=True):
+	param='x' if new else 'r+'
+	with open("reports.txt",param) as f:
+		if new:
+			startdate="1277960400"
+		else:
+			for x in f:
+				pass
+			xy=re.split(' |/|:',x.split('\t',3)[2])
+			p=[int(y) for y in xy[:-1]]
+			if xy[-1]=='PM':
+				p[3]+=12
+			year=p.pop(2)+2000
+			p=[year]+p
+			d=datetime.datetime(*p,tzinfo=datetime.timezone.utc)
+			dtstart=datetime.datetime(year,3,1,1,tzinfo=datetime.timezone.utc)
+			dtstart+=datetime.timedelta(13-datetime.date.weekday(dtstart))
+			dtend=datetime.datetime(year,11,1,tzinfo=datetime.timezone.utc)
+			dtend+=datetime.timedelta(6-datetime.date.weekday(dtend))
+			tz=5 if dtstart<d<dtend else 6
+			d+=datetime.timedelta(hours=tz)
+			startdate=str(int(datetime.datetime.timestamp(d)))
+		enddate=str(int(time.time()))
+		baseurl=f"https://incidentreports.uchicago.edu/incidentReportArchive.php?startDate={startdate}&endDate={enddate}&offset="
+		response=requests.get(baseurl+'0')
+		soup=BeautifulSoup(response.text,"html.parser")
+		pages=int(soup.find('span',class_='page-link').text[4:])*5
+		for page in range(0,pages,5):
+			response=requests.get(baseurl+str(page))
+			soup=BeautifulSoup(response.text,"html.parser")
+			rows = soup.find('tbody').findAll('tr')
+			for r in rows:
+				if len(r)==15:
+					cells=r.findAll('td')
+					i = [c.text.replace('\n',' ') for c in cells]
+					if '' not in i and 'Void' not in i and 'VOID' not in i:
+						f.write("\t".join(i)+'\n')
+			time.sleep(1)
+
+def geotag():
+	gl = Nominatim(user_agent="example app")
+	addresses = set()
+	with open("reports.txt",'r') as f:
+		for x in f:
+			a = x.split('\t')[1]
+			if a == "":
+				print(x)
+			if '(' in a:
+				a = a.split('(',1)[0]
+			addresses.add(a.strip())
+	with open("address_coords.txt",'r+') as f2:
+		seen = [u.split('\t')[0] for u in f2]
+		for y in addresses:
+			if y not in seen:
+				q = {'city':'Chicago','county':'Cook','state':'IL'}
+				q['street'] = y
+				addr = gl.geocode(query=q)
+				if addr != None:
+					f2.write('\t'.join([y,str(addr.latitude),str(addr.longitude),'\n']))
 				else:
-					adrs = gl.geocode(y)
-					# if adrs == None:
-					# 	print(y)
-					addresses[y] = adrs
-					y = adrs
-			lst[a].append(y)
-		# time.sleep(1)
-	return(lst)
-
-def getxandy(input):
-	x,y = ([],[])
-	for b in input:
-		if b == None:
-			x.append(0)
-			y.append(0)
-		else:
-			x.append(b[1][0])
-			y.append(b[1][1])
-	return (np.array(x),np.array(y))
-
-def getlocations(input):
-	output = []
-	for x in input:
-		if x == None:
-			output.append("Geolocation Failed")
-		else:
-			output.append(x[0])
-		return(np.array(output))
-
-df = scrapeucpd()
-x,y = getxandy(df[1])
-s = 0.5
-c = '#800000'
-# background = plt.imread('4.png')
-# incidents = np.array(df[0])
-# locations = getlocations(df[1])
-occurred = np.array(df[3])
-comments = np.array(df[4])
-bounds = (41.7,41.9,-87.7,-87.5)
-fig, ax = plt.subplots()
-ax.set_title("Visualize a map of Hyde Park here")
-ax.set_xlim(bounds[0],bounds[1])
-ax.set_ylim(bounds[2],bounds[3])
-sc = plt.scatter(x,y,s=s,c=c)
-
-annot = ax.annotate("", xy=(0,0), xytext=(20,20),textcoords="offset points",
-					bbox=dict(boxstyle="round", fc="w"),
-					arrowprops=dict(arrowstyle="->"))
-annot.set_visible(False)
-
-def update_annot(ind):
-	pos = sc.get_offsets()[ind["ind"][0]] 
-	annot.xy = pos
-	n = ind["ind"][0]
-	text = "{}\n{}".format(comments[n],occurred[n])
-	# text = "{}\n{}".format(" ".join([incidents[n] for n in ind["ind"]]), 
-	# 					#    " ".join([locations[n] for n in ind["ind"]]),
-	# 					#    " ".join([occurred[n] for n in ind["ind"]]),
-	# 					   " ".join([comments[n] for n in ind["ind"]]))
-	annot.set_text(text)
-	annot.get_bbox_patch().set_facecolor('#800000')
-	annot.get_bbox_patch().set_alpha(0.4)
-
-def hover(event):
-	vis = annot.get_visible()
-	if event.inaxes == ax:
-		cont,ind = sc.contains(event)
-		if cont:
-			update_annot(ind)
-			annot.set_visible(True)
-			fig.canvas.draw_idle()
-		else:
-			if vis:
-				annot.set_visible(False)
-				fig.canvas.draw_idle()
-
-fig.canvas.mpl_connect("motion_notify_event", hover)
-
-# plt.imshow(background)
-plt.show()
-# x = np.array(df[1][0])
-# y = np.array(df[1][1])
-# incident = np.array(df[0])
-# location = np.array(df[1])
+					f2.write('\t'.join([y,"Address not found\n"]))
+				seen.append(y)
+				time.sleep(5)
+scrapeucpd()
+while True:
+	try:
+		geotag()
+	except:
+		time.sleep(300)
