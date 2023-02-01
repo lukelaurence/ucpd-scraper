@@ -47,8 +47,6 @@ def geotag():
 	with open("reports.txt",'r') as f:
 		for x in f:
 			a = x.split('\t')[1]
-			if a == "":
-				print(x)
 			if '(' in a:
 				a = a.split('(',1)[0]
 			addresses.add(a.strip())
@@ -60,14 +58,8 @@ def geotag():
 				q['street'] = y
 				addr = gl.geocode(query=q)
 				if addr != None:
-					f2.write('\t'.join([y,str(addr.latitude),str(addr.longitude),'\n']))
+					f2.write('\t'.join([y,str(addr.latitude),str(addr.longitude)+'\n']))
 				else:
 					f2.write('\t'.join([y,"Address not found\n"]))
 				seen.append(y)
 				time.sleep(5)
-scrapeucpd()
-while True:
-	try:
-		geotag()
-	except:
-		time.sleep(300)
