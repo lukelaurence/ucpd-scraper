@@ -1,6 +1,8 @@
 import requests,time,datetime,re
 from bs4 import BeautifulSoup
-from geopy.geocoders import Nominatim
+
+TOPLEFT=(41.802860358270785,-87.60631189236457)
+BOTTOMRIGHT=(41.78028395,-87.58110880954357)
 
 def scrapeucpd(new=True):
 	param='x' if new else 'r+'
@@ -41,25 +43,19 @@ def scrapeucpd(new=True):
 						f.write("\t".join(i)+'\n')
 			time.sleep(1)
 
-def geotag():
-	gl = Nominatim(user_agent="example app")
-	addresses = set()
-	with open("reports.txt",'r') as f:
-		for x in f:
-			a = x.split('\t')[1]
-			if '(' in a:
-				a = a.split('(',1)[0]
-			addresses.add(a.strip())
-	with open("address_coords.txt",'r+') as f2:
-		seen = [u.split('\t')[0] for u in f2]
-		for y in addresses:
-			if y not in seen:
-				q = {'city':'Chicago','county':'Cook','state':'IL'}
-				q['street'] = y
-				addr = gl.geocode(query=q)
-				if addr != None:
-					f2.write('\t'.join([y,str(addr.latitude),str(addr.longitude)+'\n']))
-				else:
-					f2.write('\t'.join([y,"Address not found\n"]))
-				seen.append(y)
-				time.sleep(5)
+latitude,longitude=[],[]
+with open('address_coords_revised.txt','r') as f2:
+		coords = {x.split('\t')[0]:[float(y) for y in x.split('\t')[1:]] for x in f2}
+with open('reports.txt','r') as f1:
+	for x in f1:
+		a = x.split('\t')
+		if a[1] in coords.keys():
+			lat = coords[a[1]][0]
+			long = coords[a[1]][1]
+			if BOTTOMRIGHT[0]<=lat<=TOPLEFT[0] and TOPLEFT[1]<=long<=BOTTOMRIGHT[1]:
+				latitude.append(lat)
+				longitude.append(long)
+
+import matplotlib.pyplot as plt
+plt.scatter(x=longitude, y=latitude)
+plt.show()
