@@ -1,8 +1,9 @@
 import requests,time,datetime,re
 from bs4 import BeautifulSoup
+import matplotlib.pyplot as plt
 
 TOPLEFT=(41.802860358270785,-87.60631189236457)
-BOTTOMRIGHT=(41.78028395,-87.58110880954357)
+BOTTOMRIGHT=(41.78028395,-87.58)
 
 def scrapeucpd(new=True):
 	param='x' if new else 'r+'
@@ -43,19 +44,33 @@ def scrapeucpd(new=True):
 						f.write("\t".join(i)+'\n')
 			time.sleep(1)
 
-latitude,longitude=[],[]
-with open('address_coords_revised.txt','r') as f2:
-		coords = {x.split('\t')[0]:[float(y) for y in x.split('\t')[1:]] for x in f2}
-with open('reports.txt','r') as f1:
-	for x in f1:
-		a = x.split('\t')
-		if a[1] in coords.keys():
-			lat = coords[a[1]][0]
-			long = coords[a[1]][1]
-			if BOTTOMRIGHT[0]<=lat<=TOPLEFT[0] and TOPLEFT[1]<=long<=BOTTOMRIGHT[1]:
-				latitude.append(lat)
-				longitude.append(long)
+def drawmap():
+	latitude,longitude=[],[]
+	# violent = ["Battery","Robbery","Burglary","Assault","Arson","Homicide","Battery","Stalking","Sex","Hit"]
+	# superviolent = ["Battery","Assault","Homicide","Battery","Stalking","Sex","Hit"]
+	with open('address_coords_revised.txt','r') as f2:
+			coords = {x.split('\t')[0]:[float(y) for y in x.split('\t')[1:]] for x in f2}
+	with open('reports.txt','r') as f1:
+		for x in f1:
+			a = x.split('\t')
+			# isviolent = False
+			# for cri in superviolent:
+			# 	if cri in a[0]:
+			# 		isviolent = True
+			# 		break
+			# if isviolent:
+			if a[1] in coords.keys():
+				lat,long = coords[a[1]]
+				if BOTTOMRIGHT[0]<=lat<=TOPLEFT[0] and TOPLEFT[1]<=long<=BOTTOMRIGHT[1]:
+					latitude.append(lat)
+					longitude.append(long)
+	plt.scatter(x=longitude,y=latitude,color='k')
+	plt.xlim(-87.60756377,-87.579849045)
+	plt.ylim(41.779166065,41.8039784)
+	plt.axis('off')
+	plt.show()
+	# plt.savefig('test.png',dpi=300,transparent=True)
 
-import matplotlib.pyplot as plt
-plt.scatter(x=longitude, y=latitude)
-plt.show()
+drawmap()
+
+# scrapeucpd(False)
