@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 
 TOPLEFT=(41.802860358270785,-87.60631189236457)
-BOTTOMRIGHT=(41.78028395,-87.58)
+BOTTOMRIGHT=(41.78028395,-87.586304)
 
 def scrapeucpd(new=True):
 	param='x' if new else 'r+'
@@ -44,33 +44,47 @@ def scrapeucpd(new=True):
 						f.write("\t".join(i)+'\n')
 			time.sleep(1)
 
-def drawmap():
-	latitude,longitude=[],[]
-	# violent = ["Battery","Robbery","Burglary","Assault","Arson","Homicide","Battery","Stalking","Sex","Hit"]
-	# superviolent = ["Battery","Assault","Homicide","Battery","Stalking","Sex","Hit"]
+def drawmap(name="test",enddate=None):
+	latitude,longitude,sizes=[],[],[]
 	with open('address_coords_revised.txt','r') as f2:
-			coords = {x.split('\t')[0]:[float(y) for y in x.split('\t')[1:]] for x in f2}
+			addresses = {x.split('\t')[0]:tuple(float(y) for y in x.split('\t')[1:]) for x in f2}
+			coords = {z:0 for z in addresses.values()}
 	with open('reports.txt','r') as f1:
 		for x in f1:
 			a = x.split('\t')
-			# isviolent = False
-			# for cri in superviolent:
-			# 	if cri in a[0]:
-			# 		isviolent = True
-			# 		break
-			# if isviolent:
-			if a[1] in coords.keys():
-				lat,long = coords[a[1]]
-				if BOTTOMRIGHT[0]<=lat<=TOPLEFT[0] and TOPLEFT[1]<=long<=BOTTOMRIGHT[1]:
-					latitude.append(lat)
-					longitude.append(long)
-	plt.scatter(x=longitude,y=latitude,color='k')
+			if a[1] in addresses.keys():
+				if enddate:
+					month,day,year = [int(f) for f in a[2].split(' ')[0].split('/')]
+					year += 2000
+					d = datetime.date(year,month,day)
+					if d > enddate:
+						continue
+				lat,long = addresses[a[1]]
+				if not BOTTOMRIGHT[0]<=lat<=TOPLEFT[0] or not TOPLEFT[1]<=long<=BOTTOMRIGHT[1]:
+					continue
+				coords[addresses[a[1]]] += 1
+	for x,y in coords.items():
+		if y:
+			latitude.append(x[0])
+			longitude.append(x[1])
+			sizes.append(19+y**1/2)
+	plt.scatter(x=longitude,y=latitude,color='k',s=sizes)
 	plt.xlim(-87.60756377,-87.579849045)
 	plt.ylim(41.779166065,41.8039784)
 	plt.axis('off')
-	plt.show()
-	# plt.savefig('test.png',dpi=300,transparent=True)
+	# plt.show()
+	plt.savefig(f'{name}.png',dpi=300,transparent=True)
+	plt.clf()
 
-drawmap()
+def savemaps(d=7):
+	startdate = datetime.date(2010,7,1)
+	trial = 1
+	while startdate <= datetime.date.today():
+		drawmap(name=trial,enddate=startdate)
+		print(trial)
+		trial += 1
+		startdate += datetime.timedelta(days=d)
+
+savemaps(28)
 
 # scrapeucpd(False)
