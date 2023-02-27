@@ -44,7 +44,8 @@ def scrapeucpd(new=True):
 						f.write("\t".join(i)+'\n')
 			time.sleep(1)
 
-def drawmap(name="test",enddate=None):
+def drawmap(name="test",enddate=None,vfilter=False):
+	violent = ["Battery","Assault","Homicide","Battery","Sex"]
 	latitude,longitude,sizes=[],[],[]
 	with open('address_coords_revised.txt','r') as f2:
 			addresses = {x.split('\t')[0]:tuple(float(y) for y in x.split('\t')[1:]) for x in f2}
@@ -53,6 +54,14 @@ def drawmap(name="test",enddate=None):
 		for x in f1:
 			a = x.split('\t')
 			if a[1] in addresses.keys():
+				if vfilter:
+					notviolent = True
+					for v in violent:
+						if v in a[0]:
+							notviolent = False
+							break
+					if notviolent:
+						continue
 				if enddate:
 					month,day,year = [int(f) for f in a[2].split(' ')[0].split('/')]
 					year += 2000
@@ -76,15 +85,15 @@ def drawmap(name="test",enddate=None):
 	plt.savefig(f'{name}.png',dpi=300,transparent=True)
 	plt.clf()
 
-def savemaps(d=7):
+def savemaps(d=7,vfilter=False):
 	startdate = datetime.date(2010,7,1)
 	trial = 1
 	while startdate <= datetime.date.today():
-		drawmap(name=trial,enddate=startdate)
+		drawmap(name=trial,enddate=startdate,vfilter=vfilter)
 		print(trial)
 		trial += 1
 		startdate += datetime.timedelta(days=d)
 
-savemaps(28)
+savemaps(28,True)
 
 # scrapeucpd(False)
